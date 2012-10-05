@@ -18,11 +18,12 @@
 
 namespace llvm {
   namespace sys { class Path; }
+  class CodeGenOptions;
 }
 namespace clang {
 
 class ASTConsumer;
-class CodeGenOptions;
+using llvm::CodeGenOptions;
 class DiagnosticsEngine;
 class FileManager;
 class LangOptions;

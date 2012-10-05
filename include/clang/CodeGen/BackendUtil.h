@@ -13,12 +13,13 @@
 #include "clang/Basic/LLVM.h"
 
 namespace llvm {
+  class CodeGenOptions;
   class Module;
 }
 
 namespace clang {
   class DiagnosticsEngine;
-  class CodeGenOptions;
+  using llvm::CodeGenOptions;
   class TargetOptions;
   class LangOptions;
   

@@ -21,6 +21,7 @@
 #include <vector>
 
 namespace llvm {
+  class CodeGenOptions;
   class FunctionType;
   class Module;
   class TargetData;
@@ -36,7 +37,7 @@ namespace clang {
   class CXXConstructorDecl;
   class CXXDestructorDecl;
   class CXXMethodDecl;
-  class CodeGenOptions;
+  using llvm::CodeGenOptions;
   class FieldDecl;
   class FunctionProtoType;
   class ObjCInterfaceDecl;

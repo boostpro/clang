@@ -20,13 +20,14 @@
 #include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
+  class CodeGenOptions;
   class LLVMContext;
   class MDNode;
 }
 
 namespace clang {
   class ASTContext;
-  class CodeGenOptions;
+  using llvm::CodeGenOptions;
   class LangOptions;
   class MangleContext;
   class QualType;

@@ -18,6 +18,7 @@
 #include <string>
 
 namespace llvm {
+  class CodeGenOptions;
   class LLVMContext;
   class Module;
 }
@@ -25,7 +26,7 @@ namespace llvm {
 namespace clang {
   class DiagnosticsEngine;
   class LangOptions;
-  class CodeGenOptions;
+  using llvm::CodeGenOptions;
 
   class CodeGenerator : public ASTConsumer {
     virtual void anchor();

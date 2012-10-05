@@ -30,6 +30,7 @@
 #include "llvm/Support/ValueHandle.h"
 
 namespace llvm {
+  class CodeGenOptions;
   class Module;
   class Constant;
   class ConstantInt;
@@ -61,7 +62,7 @@ namespace clang {
   class ValueDecl;
   class VarDecl;
   class LangOptions;
-  class CodeGenOptions;
+  using llvm::CodeGenOptions;
   class DiagnosticsEngine;
   class AnnotateAttr;
   class CXXDestructorDecl;
