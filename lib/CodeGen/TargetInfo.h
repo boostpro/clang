@@ -16,7 +16,6 @@
 #define CLANG_CODEGEN_TARGETINFO_H
 
 #include "clang/Basic/LLVM.h"
-#include "clang/AST/Type.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace llvm {
@@ -36,6 +35,8 @@ namespace clang {
     class CGFunctionInfo;
   }
 
+  class FunctionNoProtoType;
+  
   /// TargetCodeGenInfo - This class organizes various target-specific
   /// codegeneration issues, like target-specific attributes, builtins and so
   /// on.
