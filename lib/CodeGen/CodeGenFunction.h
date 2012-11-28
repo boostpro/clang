@@ -1580,8 +1580,7 @@ public:
   //===--------------------------------------------------------------------===//
 
   LValue MakeAddrLValue(llvm::Value *V, ABIType T,
-                        CharUnits Alignment = CharUnits());
-#
+                        CharUnits Alignment = CharUnits())
   {
     return LValue::MakeAddr(V, T, Alignment, getContext(),
                             CGM.getTBAAInfo(T));
