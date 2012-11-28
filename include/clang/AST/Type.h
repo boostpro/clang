@@ -34,6 +34,7 @@
 #include "clang/Basic/LLVM.h"
 
 namespace clang {
+  class ABIType;
   enum {
     TypeAlignmentInBits = 4,
     TypeAlignment = 1 << TypeAlignmentInBits
@@ -553,6 +554,10 @@ class QualType {
 
   friend class QualifierCollector;
 public:
+
+  QualType(ABIType const&) {}
+  operator ABIType() const;
+  
   QualType() {}
 
   QualType(const Type *Ptr, unsigned Quals)
