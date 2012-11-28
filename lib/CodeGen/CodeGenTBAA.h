@@ -29,7 +29,7 @@ namespace clang {
   class CodeGenOptions;
   class LangOptions;
   class MangleContext;
-  class QualType;
+  class ABIType;
   class Type;
 
 namespace CodeGen {
@@ -67,7 +67,7 @@ class CodeGenTBAA {
   /// CollectFields - Collect information about the fields of a type for
   /// !tbaa.struct metadata formation. Return false for an unsupported type.
   bool CollectFields(uint64_t BaseOffset,
-                     QualType Ty,
+                     ABIType Ty,
                      SmallVectorImpl<llvm::MDBuilder::TBAAStructField> &Fields,
                      bool MayAlias);
 
@@ -80,7 +80,7 @@ public:
 
   /// getTBAAInfo - Get the TBAA MDNode to be used for a dereference
   /// of the given type.
-  llvm::MDNode *getTBAAInfo(QualType QTy);
+  llvm::MDNode *getTBAAInfo(ABIType QTy);
 
   /// getTBAAInfoForVTablePtr - Get the TBAA MDNode to be used for a
   /// dereference of a vtable pointer.
@@ -88,7 +88,7 @@ public:
 
   /// getTBAAStructInfo - Get the TBAAStruct MDNode to be used for a memcpy of
   /// the given type.
-  llvm::MDNode *getTBAAStructInfo(QualType QTy);
+  llvm::MDNode *getTBAAStructInfo(ABIType QTy);
 };
 
 }  // end namespace CodeGen

@@ -10,7 +10,7 @@
 #ifndef CLANG_CODEGEN_ABIINFO_H
 #define CLANG_CODEGEN_ABIINFO_H
 
-#include "clang/AST/Type.h"
+#include "ABIType.h"
 #include "llvm/Type.h"
 
 namespace llvm {
@@ -199,7 +199,7 @@ namespace clang {
     // the ABI information any lower than CodeGen. Of course, for
     // VAArg handling it has to be at this level; there is no way to
     // abstract this out.
-    virtual llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+    virtual llvm::Value *EmitVAArg(llvm::Value *VAListAddr, ABIType Ty,
                                    CodeGen::CodeGenFunction &CGF) const = 0;
   };
 }  // end namespace clang

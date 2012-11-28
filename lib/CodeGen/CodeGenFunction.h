@@ -569,7 +569,7 @@ public:
   /// CurCodeDecl - This is the inner-most code context, which includes blocks.
   const Decl *CurCodeDecl;
   const CGFunctionInfo *CurFnInfo;
-  QualType FnRetTy;
+  ABIType FnRetTy;
   llvm::Function *CurFn;
 
   /// CurGD - The GlobalDecl for the current function being compiled.
@@ -755,7 +755,7 @@ public:
   /// complete-object destructor of an object of the given type at the
   /// given address.  Does nothing if T is not a C++ class type with a
   /// non-trivial destructor.
-  void PushDestructorCleanup(QualType T, llvm::Value *Addr);
+  void PushDestructorCleanup(ABIType T, llvm::Value *Addr);
 
   /// PushDestructorCleanup - Push a cleanup to call the
   /// complete-object variant of the given destructor on the object at
@@ -1266,50 +1266,50 @@ public:
   //                                  Cleanups
   //===--------------------------------------------------------------------===//
 
-  typedef void Destroyer(CodeGenFunction &CGF, llvm::Value *addr, QualType ty);
+  typedef void Destroyer(CodeGenFunction &CGF, llvm::Value *addr, ABIType ty);
 
   void pushIrregularPartialArrayCleanup(llvm::Value *arrayBegin,
                                         llvm::Value *arrayEndPointer,
-                                        QualType elementType,
+                                        ABIType elementType,
                                         Destroyer *destroyer);
   void pushRegularPartialArrayCleanup(llvm::Value *arrayBegin,
                                       llvm::Value *arrayEnd,
-                                      QualType elementType,
+                                      ABIType elementType,
                                       Destroyer *destroyer);
 
-  void pushDestroy(QualType::DestructionKind dtorKind,
-                   llvm::Value *addr, QualType type);
-  void pushDestroy(CleanupKind kind, llvm::Value *addr, QualType type,
+  void pushDestroy(ABIType::DestructionKind dtorKind,
+                   llvm::Value *addr, ABIType type);
+  void pushDestroy(CleanupKind kind, llvm::Value *addr, ABIType type,
                    Destroyer *destroyer, bool useEHCleanupForArray);
-  void emitDestroy(llvm::Value *addr, QualType type, Destroyer *destroyer,
+  void emitDestroy(llvm::Value *addr, ABIType type, Destroyer *destroyer,
                    bool useEHCleanupForArray);
   llvm::Function *generateDestroyHelper(llvm::Constant *addr,
-                                        QualType type,
+                                        ABIType type,
                                         Destroyer *destroyer,
                                         bool useEHCleanupForArray);
   void emitArrayDestroy(llvm::Value *begin, llvm::Value *end,
-                        QualType type, Destroyer *destroyer,
+                        ABIType type, Destroyer *destroyer,
                         bool checkZeroLength, bool useEHCleanup);
 
-  Destroyer *getDestroyer(QualType::DestructionKind destructionKind);
+  Destroyer *getDestroyer(ABIType::DestructionKind destructionKind);
 
   /// Determines whether an EH cleanup is required to destroy a type
   /// with the given destruction kind.
-  bool needsEHCleanup(QualType::DestructionKind kind) {
+  bool needsEHCleanup(ABIType::DestructionKind kind) {
     switch (kind) {
-    case QualType::DK_none:
+    case ABIType::DK_none:
       return false;
-    case QualType::DK_cxx_destructor:
-    case QualType::DK_objc_weak_lifetime:
+    case ABIType::DK_cxx_destructor:
+    case ABIType::DK_objc_weak_lifetime:
       return getLangOpts().Exceptions;
-    case QualType::DK_objc_strong_lifetime:
+    case ABIType::DK_objc_strong_lifetime:
       return getLangOpts().Exceptions &&
              CGM.getCodeGenOpts().ObjCAutoRefCountExceptions;
     }
     llvm_unreachable("bad destruction kind");
   }
 
-  CleanupKind getCleanupKind(QualType::DestructionKind kind) {
+  CleanupKind getCleanupKind(ABIType::DestructionKind kind) {
     return (needsEHCleanup(kind) ? NormalAndEHCleanup : NormalCleanup);
   }
 
@@ -1342,7 +1342,7 @@ public:
                               const ObjCPropertyImplDecl *propImpl,
                               llvm::Constant *AtomicHelperFn);
   bool IndirectObjCSetterArg(const CGFunctionInfo &FI);
-  bool IvarTypeWithAggrGCObjects(QualType Ty);
+  bool IvarTypeWithAggrGCObjects(ABIType Ty);
 
   //===--------------------------------------------------------------------===//
   //                                  Block Bits
@@ -1368,7 +1368,7 @@ public:
                                              const ObjCPropertyImplDecl *PID);
   llvm::Constant *GenerateObjCAtomicGetterCopyHelperFunction(
                                              const ObjCPropertyImplDecl *PID);
-  llvm::Value *EmitBlockCopyAndAutorelease(llvm::Value *Block, QualType Ty);
+  llvm::Value *EmitBlockCopyAndAutorelease(llvm::Value *Block, ABIType Ty);
 
   void BuildBlockRelease(llvm::Value *DeclPtr, BlockFieldFlags flags);
 
@@ -1389,7 +1389,7 @@ public:
 
   void GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                     const CGFunctionInfo &FnInfo);
-  void StartFunction(GlobalDecl GD, QualType RetTy,
+  void StartFunction(GlobalDecl GD, ABIType RetTy,
                      llvm::Function *Fn,
                      const CGFunctionInfo &FnInfo,
                      const FunctionArgList &Args,
@@ -1494,8 +1494,8 @@ public:
   /// a terminate scope encloses a try.
   llvm::BasicBlock *getTerminateHandler();
 
-  llvm::Type *ConvertTypeForMem(QualType T);
-  llvm::Type *ConvertType(QualType T);
+  llvm::Type *ConvertTypeForMem(ABIType T);
+  llvm::Type *ConvertType(ABIType T);
   llvm::Type *ConvertType(const TypeDecl *T) {
     return ConvertType(getContext().getTypeDeclType(T));
   }
@@ -1505,11 +1505,11 @@ public:
   llvm::Value *LoadObjCSelf();
 
   /// TypeOfSelfObject - Return type of object that this self represents.
-  QualType TypeOfSelfObject();
+  ABIType TypeOfSelfObject();
 
   /// hasAggregateLLVMType - Return true if the specified AST type will map into
   /// an aggregate LLVM type or is void.
-  static bool hasAggregateLLVMType(QualType T);
+  static bool hasAggregateLLVMType(ABIType T);
 
   /// createBasicBlock - Create an LLVM basic block.
   llvm::BasicBlock *createBasicBlock(const Twine &name = "",
@@ -1579,13 +1579,15 @@ public:
   //                                  Helpers
   //===--------------------------------------------------------------------===//
 
-  LValue MakeAddrLValue(llvm::Value *V, QualType T,
-                        CharUnits Alignment = CharUnits()) {
+  LValue MakeAddrLValue(llvm::Value *V, ABIType T,
+                        CharUnits Alignment = CharUnits());
+#
+  {
     return LValue::MakeAddr(V, T, Alignment, getContext(),
                             CGM.getTBAAInfo(T));
   }
 
-  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T) {
+  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, ABIType T) {
     CharUnits Alignment;
     if (!T->isIncompleteType())
       Alignment = getContext().getTypeAlignInChars(T);
@@ -1607,15 +1609,15 @@ public:
   /// value needs to be stored into an alloca (for example, to avoid explicit
   /// PHI construction), but the type is the IR type, not the type appropriate
   /// for storing in memory.
-  llvm::AllocaInst *CreateIRTemp(QualType T, const Twine &Name = "tmp");
+  llvm::AllocaInst *CreateIRTemp(ABIType T, const Twine &Name = "tmp");
 
   /// CreateMemTemp - Create a temporary memory object of the given type, with
   /// appropriate alignment.
-  llvm::AllocaInst *CreateMemTemp(QualType T, const Twine &Name = "tmp");
+  llvm::AllocaInst *CreateMemTemp(ABIType T, const Twine &Name = "tmp");
 
   /// CreateAggTemp - Create a temporary memory object for the given
   /// aggregate type.
-  AggValueSlot CreateAggTemp(QualType T, const Twine &Name = "tmp") {
+  AggValueSlot CreateAggTemp(ABIType T, const Twine &Name = "tmp") {
     CharUnits Alignment = getContext().getTypeAlignInChars(T);
     return AggValueSlot::forAddr(CreateMemTemp(T, Name), Alignment,
                                  T.getQualifiers(),
@@ -1667,7 +1669,7 @@ public:
   /// The difference to EmitAggregateCopy is that tail padding is not copied.
   /// This is required for correctness when assigning non-POD structures in C++.
   void EmitAggregateAssign(llvm::Value *DestPtr, llvm::Value *SrcPtr,
-                           QualType EltTy, bool isVolatile=false,
+                           ABIType EltTy, bool isVolatile=false,
                            CharUnits Alignment = CharUnits::Zero()) {
     EmitAggregateCopy(DestPtr, SrcPtr, EltTy, isVolatile, Alignment, true);
   }
@@ -1679,7 +1681,7 @@ public:
   /// \param isAssignment - If false, allow padding to be copied.  This often
   /// yields more efficient.
   void EmitAggregateCopy(llvm::Value *DestPtr, llvm::Value *SrcPtr,
-                         QualType EltTy, bool isVolatile=false,
+                         ABIType EltTy, bool isVolatile=false,
                          CharUnits Alignment = CharUnits::Zero(),
                          bool isAssignment = false);
 
@@ -1731,32 +1733,32 @@ public:
   /// EmitNullInitialization - Generate code to set a value of the given type to
   /// null, If the type contains data member pointers, they will be initialized
   /// to -1 in accordance with the Itanium C++ ABI.
-  void EmitNullInitialization(llvm::Value *DestPtr, QualType Ty);
+  void EmitNullInitialization(llvm::Value *DestPtr, ABIType Ty);
 
   // EmitVAArg - Generate code to get an argument from the passed in pointer
   // and update it accordingly. The return value is a pointer to the argument.
   // FIXME: We should be able to get rid of this method and use the va_arg
   // instruction in LLVM instead once it works well enough.
-  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty);
+  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, ABIType Ty);
 
   /// emitArrayLength - Compute the length of an array, even if it's a
   /// VLA, and drill down to the base element type.
   llvm::Value *emitArrayLength(const ArrayType *arrayType,
-                               QualType &baseType,
+                               ABIType &baseType,
                                llvm::Value *&addr);
 
   /// EmitVLASize - Capture all the sizes for the VLA expressions in
   /// the given variably-modified type and store them in the VLASizeMap.
   ///
   /// This function can be called with a null (unreachable) insert point.
-  void EmitVariablyModifiedType(QualType Ty);
+  void EmitVariablyModifiedType(ABIType Ty);
 
   /// getVLASize - Returns an LLVM value that corresponds to the size,
   /// in non-variably-sized elements, of a variable length array type,
   /// plus that largest non-variably-sized element type.  Assumes that
   /// the type has already been emitted with EmitVariablyModifiedType.
-  std::pair<llvm::Value*,QualType> getVLASize(const VariableArrayType *vla);
-  std::pair<llvm::Value*,QualType> getVLASize(QualType vla);
+  std::pair<llvm::Value*,ABIType> getVLASize(const VariableArrayType *vla);
+  std::pair<llvm::Value*,ABIType> getVLASize(ABIType vla);
 
   /// LoadCXXThis - Load the value of 'this'. This function is only valid while
   /// generating code for an C++ member function.
@@ -1836,17 +1838,17 @@ public:
   void EmitCXXDestructorCall(const CXXDestructorDecl *D, CXXDtorType Type,
                              bool ForVirtualBase, llvm::Value *This);
 
-  void EmitNewArrayInitializer(const CXXNewExpr *E, QualType elementType,
+  void EmitNewArrayInitializer(const CXXNewExpr *E, ABIType elementType,
                                llvm::Value *NewPtr, llvm::Value *NumElements);
 
-  void EmitCXXTemporary(const CXXTemporary *Temporary, QualType TempType,
+  void EmitCXXTemporary(const CXXTemporary *Temporary, ABIType TempType,
                         llvm::Value *Ptr);
 
   llvm::Value *EmitCXXNewExpr(const CXXNewExpr *E);
   void EmitCXXDeleteExpr(const CXXDeleteExpr *E);
 
   void EmitDeleteCall(const FunctionDecl *DeleteFD, llvm::Value *Ptr,
-                      QualType DeleteTy);
+                      ABIType DeleteTy);
 
   llvm::Value* EmitCXXTypeidExpr(const CXXTypeidExpr *E);
   llvm::Value *EmitDynamicCast(llvm::Value *V, const CXXDynamicCastExpr *DCE);
@@ -1880,7 +1882,7 @@ public:
   /// \brief Emit a check that \p V is the address of storage of the
   /// appropriate size and alignment for an object of type \p Type.
   void EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc, llvm::Value *V,
-                     QualType Type, CharUnits Alignment = CharUnits::Zero());
+                     ABIType Type, CharUnits Alignment = CharUnits::Zero());
 
   llvm::Value *EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
                                        bool isInc, bool isPre);
@@ -1960,7 +1962,7 @@ public:
   void EmitAutoVarInit(const AutoVarEmission &emission);
   void EmitAutoVarCleanups(const AutoVarEmission &emission);  
   void emitAutoVarTypeCleanup(const AutoVarEmission &emission,
-                              QualType::DestructionKind dtorKind);
+                              ABIType::DestructionKind dtorKind);
 
   void EmitStaticVarDecl(const VarDecl &D,
                          llvm::GlobalValue::LinkageTypes Linkage);
@@ -2047,7 +2049,7 @@ public:
   //===--------------------------------------------------------------------===//
 
   /// GetUndefRValue - Get an appropriate 'undef' rvalue for the given type.
-  RValue GetUndefRValue(QualType Ty);
+  RValue GetUndefRValue(ABIType Ty);
 
   /// EmitUnsupportedRValue - Emit a dummy r-value using the type of E
   /// and issue an ErrorUnsupported style diagnostic (using the
@@ -2085,17 +2087,17 @@ public:
 
   /// EmitToMemory - Change a scalar value from its value
   /// representation to its in-memory representation.
-  llvm::Value *EmitToMemory(llvm::Value *Value, QualType Ty);
+  llvm::Value *EmitToMemory(llvm::Value *Value, ABIType Ty);
 
   /// EmitFromMemory - Change a scalar value from its memory
   /// representation to its value representation.
-  llvm::Value *EmitFromMemory(llvm::Value *Value, QualType Ty);
+  llvm::Value *EmitFromMemory(llvm::Value *Value, ABIType Ty);
 
   /// EmitLoadOfScalar - Load a scalar value from an address, taking
   /// care to appropriately convert from the memory representation to
   /// the LLVM value representation.
   llvm::Value *EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
-                                unsigned Alignment, QualType Ty,
+                                unsigned Alignment, ABIType Ty,
                                 llvm::MDNode *TBAAInfo = 0);
 
   /// EmitLoadOfScalar - Load a scalar value from an address, taking
@@ -2108,7 +2110,7 @@ public:
   /// care to appropriately convert from the memory representation to
   /// the LLVM value representation.
   void EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
-                         bool Volatile, unsigned Alignment, QualType Ty,
+                         bool Volatile, unsigned Alignment, ABIType Ty,
                          llvm::MDNode *TBAAInfo = 0, bool isInit=false);
 
   /// EmitStoreOfScalar - Store a scalar value to an address, taking
@@ -2214,7 +2216,7 @@ public:
   LValue EmitLValueForFieldInitialization(LValue Base,
                                           const FieldDecl* Field);
 
-  LValue EmitLValueForIvar(QualType ObjectTy,
+  LValue EmitLValueForIvar(ABIType ObjectTy,
                            llvm::Value* Base, const ObjCIvarDecl *Ivar,
                            unsigned CVRQualifiers);
 
@@ -2248,7 +2250,7 @@ public:
                   const Decl *TargetDecl = 0,
                   llvm::Instruction **callOrInvoke = 0);
 
-  RValue EmitCall(QualType FnType, llvm::Value *Callee,
+  RValue EmitCall(ABIType FnType, llvm::Value *Callee,
                   ReturnValueSlot ReturnValue,
                   CallExpr::const_arg_iterator ArgBeg,
                   CallExpr::const_arg_iterator ArgEnd,
@@ -2347,13 +2349,13 @@ public:
                                 bool ignored);
   void EmitARCCopyWeak(llvm::Value *dst, llvm::Value *src);
   void EmitARCMoveWeak(llvm::Value *dst, llvm::Value *src);
-  llvm::Value *EmitARCRetainAutorelease(QualType type, llvm::Value *value);
+  llvm::Value *EmitARCRetainAutorelease(ABIType type, llvm::Value *value);
   llvm::Value *EmitARCRetainAutoreleaseNonBlock(llvm::Value *value);
   llvm::Value *EmitARCStoreStrong(LValue lvalue, llvm::Value *value,
                                   bool ignored);
   llvm::Value *EmitARCStoreStrongCall(llvm::Value *addr, llvm::Value *value,
                                       bool ignored);
-  llvm::Value *EmitARCRetain(QualType type, llvm::Value *value);
+  llvm::Value *EmitARCRetain(ABIType type, llvm::Value *value);
   llvm::Value *EmitARCRetainNonBlock(llvm::Value *value);
   llvm::Value *EmitARCRetainBlock(llvm::Value *value, bool mandatory);
   void EmitARCDestroyStrong(llvm::Value *addr, bool precise);
@@ -2370,9 +2372,9 @@ public:
 
   llvm::Value *EmitObjCThrowOperand(const Expr *expr);
 
-  llvm::Value *EmitObjCProduceObject(QualType T, llvm::Value *Ptr);
-  llvm::Value *EmitObjCConsumeObject(QualType T, llvm::Value *Ptr);
-  llvm::Value *EmitObjCExtendObjectLifetime(QualType T, llvm::Value *Ptr);
+  llvm::Value *EmitObjCProduceObject(ABIType T, llvm::Value *Ptr);
+  llvm::Value *EmitObjCConsumeObject(ABIType T, llvm::Value *Ptr);
+  llvm::Value *EmitObjCExtendObjectLifetime(ABIType T, llvm::Value *Ptr);
 
   llvm::Value *EmitARCExtendBlockObject(const Expr *expr);
   llvm::Value *EmitARCRetainScalarExpr(const Expr *expr);
@@ -2405,14 +2407,14 @@ public:
 
   /// EmitScalarConversion - Emit a conversion from the specified type to the
   /// specified destination type, both of which are LLVM scalar types.
-  llvm::Value *EmitScalarConversion(llvm::Value *Src, QualType SrcTy,
-                                    QualType DstTy);
+  llvm::Value *EmitScalarConversion(llvm::Value *Src, ABIType SrcTy,
+                                    ABIType DstTy);
 
   /// EmitComplexToScalarConversion - Emit a conversion from the specified
   /// complex type to the specified destination type, where the destination type
   /// is an LLVM scalar type.
-  llvm::Value *EmitComplexToScalarConversion(ComplexPairTy Src, QualType SrcTy,
-                                             QualType DstTy);
+  llvm::Value *EmitComplexToScalarConversion(ComplexPairTy Src, ABIType SrcTy,
+                                             ABIType DstTy);
 
 
   /// EmitAggExpr - Emit the computation of the specified expression
@@ -2427,7 +2429,7 @@ public:
   /// EmitGCMemmoveCollectable - Emit special API for structs with object
   /// pointers.
   void EmitGCMemmoveCollectable(llvm::Value *DestPtr, llvm::Value *SrcPtr,
-                                QualType Ty);
+                                ABIType Ty);
 
   /// EmitExtendGCLifetime - Given a pointer to an Objective-C object,
   /// make sure it survives garbage collection until this point.
@@ -2565,7 +2567,7 @@ public:
 
   /// \brief Emit a description of a type in a format suitable for passing to
   /// a runtime sanitizer handler.
-  llvm::Constant *EmitCheckTypeDescriptor(QualType T);
+  llvm::Constant *EmitCheckTypeDescriptor(ABIType T);
 
   /// \brief Convert a value into a format suitable for passing to a runtime
   /// sanitizer handler.
@@ -2588,7 +2590,7 @@ public:
   void EmitTrapvCheck(llvm::Value *Checked);
 
   /// EmitCallArg - Emit a single call argument.
-  void EmitCallArg(CallArgList &args, const Expr *E, QualType ArgType);
+  void EmitCallArg(CallArgList &args, const Expr *E, ABIType ArgType);
 
   /// EmitDelegateCallArg - We are performing a delegate call; that
   /// is, the current function is delegating to another one.  Produce
@@ -2600,8 +2602,8 @@ public:
   void SetFPAccuracy(llvm::Value *Val, float Accuracy);
 
 private:
-  llvm::MDNode *getRangeForLoadFromType(QualType Ty);
-  void EmitReturnOfRValue(RValue RV, QualType Ty);
+  llvm::MDNode *getRangeForLoadFromType(ABIType Ty);
+  void EmitReturnOfRValue(RValue RV, ABIType Ty);
 
   /// ExpandTypeFromArgs - Reconstruct a structure of type \arg Ty
   /// from function arguments into \arg Dst. See ABIArgInfo::Expand.
@@ -2610,13 +2612,13 @@ private:
   /// \return The argument following the last expanded function
   /// argument.
   llvm::Function::arg_iterator
-  ExpandTypeFromArgs(QualType Ty, LValue Dst,
+  ExpandTypeFromArgs(ABIType Ty, LValue Dst,
                      llvm::Function::arg_iterator AI);
 
   /// ExpandTypeToArgs - Expand an RValue \arg Src, with the LLVM type for \arg
   /// Ty, into individual arguments on the provided vector \arg Args. See
   /// ABIArgInfo::Expand.
-  void ExpandTypeToArgs(QualType Ty, RValue Src,
+  void ExpandTypeToArgs(ABIType Ty, RValue Src,
                         SmallVector<llvm::Value*, 16> &Args,
                         llvm::FunctionType *IRFuncTy);
 
@@ -2624,7 +2626,7 @@ private:
                             const Expr *InputExpr, std::string &ConstraintStr);
 
   llvm::Value* EmitAsmInputLValue(const TargetInfo::ConstraintInfo &Info,
-                                  LValue InputValue, QualType InputType,
+                                  LValue InputValue, ABIType InputType,
                                   std::string &ConstraintStr);
 
   /// EmitCallArgs - Emit call arguments for a function.
@@ -2641,13 +2643,13 @@ private:
       for (typename T::arg_type_iterator I = CallArgTypeInfo->arg_type_begin(),
            E = CallArgTypeInfo->arg_type_end(); I != E; ++I, ++Arg) {
         assert(Arg != ArgEnd && "Running over edge of argument list!");
-        QualType ArgType = *I;
+        ABIType ArgType = *I;
 #ifndef NDEBUG
-        QualType ActualArgType = Arg->getType();
+        ABIType ActualArgType = Arg->getType();
         if (ArgType->isPointerType() && ActualArgType->isPointerType()) {
-          QualType ActualBaseType =
+          ABIType ActualBaseType =
             ActualArgType->getAs<PointerType>()->getPointeeType();
-          QualType ArgBaseType =
+          ABIType ArgBaseType =
             ArgType->getAs<PointerType>()->getPointeeType();
           if (ArgBaseType->isVariableArrayType()) {
             if (const VariableArrayType *VAT =

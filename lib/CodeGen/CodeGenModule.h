@@ -283,8 +283,8 @@ class CodeGenModule : public CodeGenTypeCache {
   llvm::DenseMap<const Decl*, llvm::Constant *> StaticLocalDeclMap;
   llvm::DenseMap<const Decl*, llvm::GlobalVariable*> StaticLocalDeclGuardMap;
   
-  llvm::DenseMap<QualType, llvm::Constant *> AtomicSetterHelperFnMap;
-  llvm::DenseMap<QualType, llvm::Constant *> AtomicGetterHelperFnMap;
+  llvm::DenseMap<ABIType, llvm::Constant *> AtomicSetterHelperFnMap;
+  llvm::DenseMap<ABIType, llvm::Constant *> AtomicGetterHelperFnMap;
 
   /// CXXGlobalInits - Global variables with initializers that need to run
   /// before main.
@@ -329,7 +329,7 @@ class CodeGenModule : public CodeGenTypeCache {
   
   /// \brief The type used to describe the state of a fast enumeration in
   /// Objective-C's for..in loop.
-  QualType ObjCFastEnumerationStateType;
+  ABIType ObjCFastEnumerationStateType;
   
   /// @}
 
@@ -424,18 +424,18 @@ public:
     StaticLocalDeclGuardMap[D] = C;
   }
 
-  llvm::Constant *getAtomicSetterHelperFnMap(QualType Ty) {
+  llvm::Constant *getAtomicSetterHelperFnMap(ABIType Ty) {
     return AtomicSetterHelperFnMap[Ty];
   }
-  void setAtomicSetterHelperFnMap(QualType Ty,
+  void setAtomicSetterHelperFnMap(ABIType Ty,
                             llvm::Constant *Fn) {
     AtomicSetterHelperFnMap[Ty] = Fn;
   }
 
-  llvm::Constant *getAtomicGetterHelperFnMap(QualType Ty) {
+  llvm::Constant *getAtomicGetterHelperFnMap(ABIType Ty) {
     return AtomicGetterHelperFnMap[Ty];
   }
-  void setAtomicGetterHelperFnMap(QualType Ty,
+  void setAtomicGetterHelperFnMap(ABIType Ty,
                             llvm::Constant *Fn) {
     AtomicGetterHelperFnMap[Ty] = Fn;
   }
@@ -466,11 +466,11 @@ public:
 
   bool shouldUseTBAA() const { return TBAA != 0; }
 
-  llvm::MDNode *getTBAAInfo(QualType QTy);
+  llvm::MDNode *getTBAAInfo(ABIType QTy);
   llvm::MDNode *getTBAAInfoForVTablePtr();
-  llvm::MDNode *getTBAAStructInfo(QualType QTy);
+  llvm::MDNode *getTBAAStructInfo(ABIType QTy);
 
-  bool isTypeConstant(QualType QTy, bool ExcludeCtorDtor);
+  bool isTypeConstant(ABIType QTy, bool ExcludeCtorDtor);
 
   static void DecorateInstruction(llvm::Instruction *Inst,
                                   llvm::MDNode *TBAAInfo);
@@ -554,7 +554,7 @@ public:
 
   /// GetAddrOfRTTIDescriptor - Get the address of the RTTI descriptor 
   /// for the given type.
-  llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
+  llvm::Constant *GetAddrOfRTTIDescriptor(ABIType Ty, bool ForEH = false);
 
   /// GetAddrOfUuidDescriptor - Get the address of a uuid descriptor .
   llvm::Constant *GetAddrOfUuidDescriptor(const CXXUuidofExpr* E);
@@ -667,7 +667,7 @@ public:
   
   /// \brief Retrieve the record type that describes the state of an
   /// Objective-C fast enumeration loop (for..in).
-  QualType getObjCFastEnumerationStateType();
+  ABIType getObjCFastEnumerationStateType();
   
   /// GetAddrOfCXXConstructor - Return the address of the constructor of the
   /// given type.
@@ -741,24 +741,24 @@ public:
   /// EmitConstantExpr - Try to emit the given expression as a
   /// constant; returns 0 if the expression cannot be emitted as a
   /// constant.
-  llvm::Constant *EmitConstantExpr(const Expr *E, QualType DestType,
+  llvm::Constant *EmitConstantExpr(const Expr *E, ABIType DestType,
                                    CodeGenFunction *CGF = 0);
 
   /// EmitConstantValue - Emit the given constant value as a constant, in the
   /// type's scalar representation.
-  llvm::Constant *EmitConstantValue(const APValue &Value, QualType DestType,
+  llvm::Constant *EmitConstantValue(const APValue &Value, ABIType DestType,
                                     CodeGenFunction *CGF = 0);
 
   /// EmitConstantValueForMemory - Emit the given constant value as a constant,
   /// in the type's memory representation.
   llvm::Constant *EmitConstantValueForMemory(const APValue &Value,
-                                             QualType DestType,
+                                             ABIType DestType,
                                              CodeGenFunction *CGF = 0);
 
   /// EmitNullConstant - Return the result of value-initializing the given
   /// type, i.e. a null expression of the given type.  This is usually,
   /// but not always, an LLVM null constant.
-  llvm::Constant *EmitNullConstant(QualType T);
+  llvm::Constant *EmitNullConstant(ABIType T);
 
   /// EmitNullConstantForBase - Return a null constant appropriate for 
   /// zero-initializing a base class with the given type.  This is usually,
@@ -805,11 +805,11 @@ public:
 
   /// ReturnTypeUsesFPRet - Return true iff the given type uses 'fpret' when
   /// used as a return type.
-  bool ReturnTypeUsesFPRet(QualType ResultType);
+  bool ReturnTypeUsesFPRet(ABIType ResultType);
 
   /// ReturnTypeUsesFP2Ret - Return true iff the given type uses 'fp2ret' when
   /// used as a return type.
-  bool ReturnTypeUsesFP2Ret(QualType ResultType);
+  bool ReturnTypeUsesFP2Ret(ABIType ResultType);
 
   /// ConstructAttributeList - Get the LLVM attributes and calling convention to
   /// use for a particular function type.
@@ -975,7 +975,7 @@ private:
 
   /// EmitFundamentalRTTIDescriptor - Emit the RTTI descriptors for the
   /// given type.
-  void EmitFundamentalRTTIDescriptor(QualType Type);
+  void EmitFundamentalRTTIDescriptor(ABIType Type);
 
   /// EmitFundamentalRTTIDescriptors - Emit the RTTI descriptors for the
   /// builtin types.
@@ -996,7 +996,7 @@ private:
   void EmitCoverageFile();
 
   /// Emits the initializer for a uuidof string.
-  llvm::Constant *EmitUuidofInitializer(StringRef uuidstr, QualType IIDType);
+  llvm::Constant *EmitUuidofInitializer(StringRef uuidstr, ABIType IIDType);
 
   /// MayDeferGeneration - Determine if the given decl can be emitted
   /// lazily; this is only relevant for definitions. The given decl

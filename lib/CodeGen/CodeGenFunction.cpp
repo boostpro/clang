@@ -25,6 +25,8 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/MDBuilder.h"
 #include "llvm/DataLayout.h"
+#include "ABIType.h"
+
 using namespace clang;
 using namespace CodeGen;
 

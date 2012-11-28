@@ -76,7 +76,7 @@ static bool TypeHasMayAlias(QualType QTy) {
 }
 
 llvm::MDNode *
-CodeGenTBAA::getTBAAInfo(QualType QTy) {
+CodeGenTBAA::getTBAAInfo(ABIType QTy) {
   // At -O0 TBAA is not emitted for regular types.
   if (CodeGenOpts.OptimizationLevel == 0 || CodeGenOpts.RelaxedAliasing)
     return NULL;
