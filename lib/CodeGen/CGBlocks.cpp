@@ -1403,13 +1403,13 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
   for (BlockDecl::capture_const_iterator ci = blockDecl->capture_begin(),
          ce = blockDecl->capture_end(); ci != ce; ++ci) {
     const VarDecl *variable = ci->getVariable();
-    QualType type = variable->getType();
+    ABIType type = variable->getType();
 
     const CGBlockInfo::Capture &capture = blockInfo.getCapture(variable);
     if (capture.isConstant()) continue;
 
     BlockFieldFlags flags;
-    const CXXDestructorDecl *dtor = 0;
+    const ABIType::CXXDestructorDecl *dtor = 0;
 
     bool useARCWeakDestroy = false;
     bool useARCStrongDestroy = false;
@@ -1418,7 +1418,7 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
       flags = BLOCK_FIELD_IS_BYREF;
       if (type.isObjCGCWeak())
         flags |= BLOCK_FIELD_IS_WEAK;
-    } else if (const CXXRecordDecl *record = type->getAsCXXRecordDecl()) {
+    } else if (const ABIType::CXXRecordDecl *record = type->getAsCXXRecordDecl()) {
       if (record->hasTrivialDestructor())
         continue;
       dtor = record->getDestructor();
@@ -1429,7 +1429,7 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
 
       // Special rules for ARC captures.
       if (getLangOpts().ObjCAutoRefCount) {
-        Qualifiers qs = type.getQualifiers();
+        ABIType::Qualifiers qs = type.getQualifiers();
 
         // Don't generate special dispose logic for a captured object
         // unless it's __strong or __weak.
@@ -1603,11 +1603,11 @@ public:
 /// Emits the copy/dispose helpers for a __block variable with a
 /// nontrivial copy constructor or destructor.
 class CXXByrefHelpers : public CodeGenModule::ByrefHelpers {
-  QualType VarType;
+  ABIType VarType;
   const Expr *CopyExpr;
 
 public:
-  CXXByrefHelpers(CharUnits alignment, QualType type,
+  CXXByrefHelpers(CharUnits alignment, ABIType type,
                   const Expr *copyExpr)
     : ByrefHelpers(alignment), VarType(type), CopyExpr(copyExpr) {}
 
@@ -1624,9 +1624,14 @@ public:
     CGF.PopCleanupBlocks(cleanupDepth);
   }
 
-  void profileImpl(llvm::FoldingSetNodeID &id) const {
+  void profileImpl(llvm::FoldingSetNodeID &id) const
+#if 0 // DWA
+  {
     id.AddPointer(VarType.getCanonicalType().getAsOpaquePtr());
   }
+#else
+  ;
+#endif 
 };
 } // end anonymous namespace
 
@@ -1636,7 +1641,7 @@ generateByrefCopyHelper(CodeGenFunction &CGF,
                         CodeGenModule::ByrefHelpers &byrefInfo) {
   ASTContext &Context = CGF.getContext();
 
-  QualType R = Context.VoidTy;
+  ABIType R = Context.VoidTy;
 
   FunctionArgList args;
   ImplicitParamDecl dst(0, SourceLocation(), 0, Context.VoidPtrTy);
@@ -1711,7 +1716,7 @@ generateByrefDisposeHelper(CodeGenFunction &CGF,
                            llvm::StructType &byrefType,
                            CodeGenModule::ByrefHelpers &byrefInfo) {
   ASTContext &Context = CGF.getContext();
-  QualType R = Context.VoidTy;
+  ABIType R = Context.VoidTy;
 
   FunctionArgList args;
   ImplicitParamDecl src(0, SourceLocation(), 0, Context.VoidPtrTy);
@@ -1797,9 +1802,9 @@ CodeGenModule::ByrefHelpers *
 CodeGenFunction::buildByrefHelpers(llvm::StructType &byrefType,
                                    const AutoVarEmission &emission) {
   const VarDecl &var = *emission.Variable;
-  QualType type = var.getType();
+  ABIType type = var.getType();
 
-  if (const CXXRecordDecl *record = type->getAsCXXRecordDecl()) {
+  if (const ABIType::CXXRecordDecl *record = type->getAsCXXRecordDecl()) {
     const Expr *copyExpr = CGM.getContext().getBlockVarCopyInits(&var);
     if (!copyExpr && record->hasTrivialDestructor()) return 0;
 
@@ -1811,10 +1816,10 @@ CodeGenFunction::buildByrefHelpers(llvm::StructType &byrefType,
   // that the runtime does extra copies.
   if (!type->isObjCRetainableType()) return 0;
 
-  Qualifiers qs = type.getQualifiers();
+  ABIType::Qualifiers qs = type.getQualifiers();
 
   // If we have lifetime, that dominates.
-  if (Qualifiers::ObjCLifetime lifetime = qs.getObjCLifetime()) {
+  if (ABIType::Qualifiers::ObjCLifetime lifetime = qs.getObjCLifetime()) {
     assert(getLangOpts().ObjCAutoRefCount);
 
     switch (lifetime) {
@@ -1901,7 +1906,7 @@ llvm::Type *CodeGenFunction::BuildByRefType(const VarDecl *D) {
   if (Info.first)
     return Info.first;
   
-  QualType Ty = D->getType();
+  ABIType Ty = D->getType();
 
   SmallVector<llvm::Type *, 8> types;
   
@@ -1989,7 +1994,7 @@ void CodeGenFunction::emitByrefStructureInit(const AutoVarEmission &emission) {
     buildByrefHelpers(*byrefType, emission);
 
   const VarDecl &D = *emission.Variable;
-  QualType type = D.getType();
+  ABIType type = D.getType();
 
   llvm::Value *V;
 

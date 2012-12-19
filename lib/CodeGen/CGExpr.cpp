@@ -2313,7 +2313,7 @@ LValue CodeGenFunction::EmitMemberExpr(const MemberExpr *E) {
 }
 
 LValue CodeGenFunction::EmitLValueForField(LValue base,
-                                           const FieldDecl *field) {
+                                           const ABIType::FieldDecl *field) {
   if (field->isBitField()) {
     const CGRecordLayout &RL =
       CGM.getTypes().getCGRecordLayout(field->getParent());

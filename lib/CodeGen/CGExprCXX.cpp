@@ -832,7 +832,7 @@ static void StoreAnyExprIntoOneUnit(CodeGenFunction &CGF, const Expr *Init,
 
 void
 CodeGenFunction::EmitNewArrayInitializer(const CXXNewExpr *E, 
-                                         QualType elementType,
+                                         ABIType elementType,
                                          llvm::Value *beginPtr,
                                          llvm::Value *numElements) {
   if (!E->hasInitializer())
@@ -847,7 +847,7 @@ CodeGenFunction::EmitNewArrayInitializer(const CXXNewExpr *E,
 
   const Expr *Init = E->getInitializer();
   llvm::AllocaInst *endOfInit = 0;
-  QualType::DestructionKind dtorKind = elementType.isDestructedType();
+  ABIType::DestructionKind dtorKind = elementType.isDestructedType();
   EHScopeStack::stable_iterator cleanup;
   llvm::Instruction *cleanupDominator = 0;
   // If the initializer is an initializer list, first do the explicit elements.
@@ -944,7 +944,7 @@ CodeGenFunction::EmitNewArrayInitializer(const CXXNewExpr *E,
   EmitBlock(contBB);
 }
 
-static void EmitZeroMemSet(CodeGenFunction &CGF, QualType T,
+static void EmitZeroMemSet(CodeGenFunction &CGF, ABIType T,
                            llvm::Value *NewPtr, llvm::Value *Size) {
   CGF.EmitCastToVoidPtr(NewPtr);
   CharUnits Alignment = CGF.getContext().getTypeAlignInChars(T);
@@ -953,7 +953,7 @@ static void EmitZeroMemSet(CodeGenFunction &CGF, QualType T,
 }
                        
 static void EmitNewInitializer(CodeGenFunction &CGF, const CXXNewExpr *E,
-                               QualType ElementType,
+                               ABIType ElementType,
                                llvm::Value *NewPtr,
                                llvm::Value *NumElements,
                                llvm::Value *AllocSizeWithoutCookie) {
@@ -1155,7 +1155,7 @@ static void EnterNewDeleteCleanup(CodeGenFunction &CGF,
 
 llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
   // The element type being allocated.
-  QualType allocType = getContext().getBaseElementType(E->getAllocatedType());
+  ABIType allocType = getContext().getBaseElementType(E->getAllocatedType());
 
   // 1. Build a call to the allocation function.
   FunctionDecl *allocator = E->getOperatorNew();
@@ -1165,7 +1165,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
   CallArgList allocatorArgs;
 
   // The allocation size is the first argument.
-  QualType sizeType = getContext().getSizeType();
+  ABIType sizeType = getContext().getSizeType();
 
   // If there is a brace-initializer, cannot allocate fewer elements than inits.
   unsigned minElements = 0;
@@ -1191,7 +1191,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
   // has already been emitted.
   for (unsigned i = 1, e = allocatorType->getNumArgs(); i != e;
        ++i, ++placementArg) {
-    QualType argType = allocatorType->getArgType(i);
+    ABIType argType = allocatorType->getArgType(i);
 
     assert(getContext().hasSameUnqualifiedType(argType.getNonReferenceType(),
                                                placementArg->getType()) &&
@@ -1318,7 +1318,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
 
 void CodeGenFunction::EmitDeleteCall(const FunctionDecl *DeleteFD,
                                      llvm::Value *Ptr,
-                                     QualType DeleteTy) {
+                                     ABIType DeleteTy) {
   assert(DeleteFD->getOverloadedOperator() == OO_Delete);
 
   const FunctionProtoType *DeleteFTy =
@@ -1328,7 +1328,7 @@ void CodeGenFunction::EmitDeleteCall(const FunctionDecl *DeleteFD,
 
   // Check if we need to pass the size to the delete operator.
   llvm::Value *Size = 0;
-  QualType SizeTy;
+  ABIType SizeTy;
   if (DeleteFTy->getNumArgs() == 2) {
     SizeTy = DeleteFTy->getArgType(1);
     CharUnits DeleteTypeSize = getContext().getTypeSizeInChars(DeleteTy);
@@ -1336,7 +1336,7 @@ void CodeGenFunction::EmitDeleteCall(const FunctionDecl *DeleteFD,
                                   DeleteTypeSize.getQuantity());
   }
   
-  QualType ArgTy = DeleteFTy->getArgType(0);
+  ABIType ArgTy = DeleteFTy->getArgType(0);
   llvm::Value *DeletePtr = Builder.CreateBitCast(Ptr, ConvertType(ArgTy));
   DeleteArgs.add(RValue::get(DeletePtr), ArgTy);
 
@@ -1354,11 +1354,11 @@ namespace {
   struct CallObjectDelete : EHScopeStack::Cleanup {
     llvm::Value *Ptr;
     const FunctionDecl *OperatorDelete;
-    QualType ElementType;
+    ABIType ElementType;
 
     CallObjectDelete(llvm::Value *Ptr,
                      const FunctionDecl *OperatorDelete,
-                     QualType ElementType)
+                     ABIType ElementType)
       : Ptr(Ptr), OperatorDelete(OperatorDelete), ElementType(ElementType) {}
 
     void Emit(CodeGenFunction &CGF, Flags flags) {
@@ -1371,13 +1371,13 @@ namespace {
 static void EmitObjectDelete(CodeGenFunction &CGF,
                              const FunctionDecl *OperatorDelete,
                              llvm::Value *Ptr,
-                             QualType ElementType,
+                             ABIType ElementType,
                              bool UseGlobalDelete) {
   // Find the destructor for the type, if applicable.  If the
   // destructor is virtual, we'll just emit the vcall and return.
   const CXXDestructorDecl *Dtor = 0;
-  if (const RecordType *RT = ElementType->getAs<RecordType>()) {
-    CXXRecordDecl *RD = cast<CXXRecordDecl>(RT->getDecl());
+  if (const ABIType::Record *RT = ElementType->getAs<RecordType>()) {
+    ABIType::CXXRecordDecl *RD = cast<CXXRecordDecl>(RT->getDecl());
     if (RD->hasDefinition() && !RD->hasTrivialDestructor()) {
       Dtor = RD->getDestructor();
 
@@ -1458,13 +1458,13 @@ namespace {
     llvm::Value *Ptr;
     const FunctionDecl *OperatorDelete;
     llvm::Value *NumElements;
-    QualType ElementType;
+    ABIType ElementType;
     CharUnits CookieSize;
 
     CallArrayDelete(llvm::Value *Ptr,
                     const FunctionDecl *OperatorDelete,
                     llvm::Value *NumElements,
-                    QualType ElementType,
+                    ABIType ElementType,
                     CharUnits CookieSize)
       : Ptr(Ptr), OperatorDelete(OperatorDelete), NumElements(NumElements),
         ElementType(ElementType), CookieSize(CookieSize) {}
@@ -1477,14 +1477,14 @@ namespace {
       CallArgList Args;
       
       // Pass the pointer as the first argument.
-      QualType VoidPtrTy = DeleteFTy->getArgType(0);
+      ABIType VoidPtrTy = DeleteFTy->getArgType(0);
       llvm::Value *DeletePtr
         = CGF.Builder.CreateBitCast(Ptr, CGF.ConvertType(VoidPtrTy));
       Args.add(RValue::get(DeletePtr), VoidPtrTy);
 
       // Pass the original requested size as the second argument.
       if (DeleteFTy->getNumArgs() == 2) {
-        QualType size_t = DeleteFTy->getArgType(1);
+        ABIType size_t = DeleteFTy->getArgType(1);
         llvm::IntegerType *SizeTy
           = cast<llvm::IntegerType>(CGF.ConvertType(size_t));
         
@@ -1518,7 +1518,7 @@ namespace {
 static void EmitArrayDelete(CodeGenFunction &CGF,
                             const CXXDeleteExpr *E,
                             llvm::Value *deletedPtr,
-                            QualType elementType) {
+                            ABIType elementType) {
   llvm::Value *numElements = 0;
   llvm::Value *allocatedPtr = 0;
   CharUnits cookieSize;
@@ -1535,7 +1535,7 @@ static void EmitArrayDelete(CodeGenFunction &CGF,
                                            cookieSize);
 
   // Destroy the elements.
-  if (QualType::DestructionKind dtorKind = elementType.isDestructedType()) {
+  if (ABIType::DestructionKind dtorKind = elementType.isDestructedType()) {
     assert(numElements && "no element count for a type with a destructor!");
 
     llvm::Value *arrayEnd =
@@ -1570,7 +1570,7 @@ void CodeGenFunction::EmitCXXDeleteExpr(const CXXDeleteExpr *E) {
   // We might be deleting a pointer to array.  If so, GEP down to the
   // first non-array element.
   // (this assumes that A(*)[3][7] is converted to [3 x [7 x %A]]*)
-  QualType DeleteTy = Arg->getType()->getAs<PointerType>()->getPointeeType();
+  ABIType DeleteTy = Arg->getType()->getAs<PointerType>()->getPointeeType();
   if (DeleteTy->isConstantArrayType()) {
     llvm::Value *Zero = Builder.getInt32(0);
     SmallVector<llvm::Value*,8> GEP;
@@ -1669,7 +1669,7 @@ llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
     return EmitTypeidFromVTable(*this, E->getExprOperand(), 
                                 StdTypeInfoPtrTy);
 
-  QualType OperandTy = E->getExprOperand()->getType();
+  ABIType OperandTy = E->getExprOperand()->getType();
   return Builder.CreateBitCast(CGM.GetAddrOfRTTIDescriptor(OperandTy),
                                StdTypeInfoPtrTy);
 }
@@ -1706,7 +1706,7 @@ static void EmitBadCastCall(CodeGenFunction &CGF) {
 
 static llvm::Value *
 EmitDynamicCastCall(CodeGenFunction &CGF, llvm::Value *Value,
-                    QualType SrcTy, QualType DestTy,
+                    ABIType SrcTy, ABIType DestTy,
                     llvm::BasicBlock *CastEnd) {
   llvm::Type *PtrDiffLTy = 
     CGF.ConvertType(CGF.getContext().getPointerDiffType());
@@ -1734,8 +1734,8 @@ EmitDynamicCastCall(CodeGenFunction &CGF, llvm::Value *Value,
     }
   }
 
-  QualType SrcRecordTy;
-  QualType DestRecordTy;
+  ABIType SrcRecordTy;
+  ABIType DestRecordTy;
   
   if (const PointerType *DestPTy = DestTy->getAs<PointerType>()) {
     SrcRecordTy = SrcTy->castAs<PointerType>()->getPointeeType();
@@ -1779,7 +1779,7 @@ EmitDynamicCastCall(CodeGenFunction &CGF, llvm::Value *Value,
 }
 
 static llvm::Value *EmitDynamicCastToNull(CodeGenFunction &CGF,
-                                          QualType DestTy) {
+                                          ABIType DestTy) {
   llvm::Type *DestLTy = CGF.ConvertType(DestTy);
   if (DestTy->isPointerType())
     return llvm::Constant::getNullValue(DestLTy);
@@ -1794,12 +1794,12 @@ static llvm::Value *EmitDynamicCastToNull(CodeGenFunction &CGF,
 
 llvm::Value *CodeGenFunction::EmitDynamicCast(llvm::Value *Value,
                                               const CXXDynamicCastExpr *DCE) {
-  QualType DestTy = DCE->getTypeAsWritten();
+  ABIType DestTy = DCE->getTypeAsWritten();
 
   if (DCE->isAlwaysNull())
     return EmitDynamicCastToNull(*this, DestTy);
 
-  QualType SrcTy = DCE->getSubExpr()->getType();
+  ABIType SrcTy = DCE->getSubExpr()->getType();
 
   // C++ [expr.dynamic.cast]p4: 
   //   If the value of v is a null pointer value in the pointer case, the result

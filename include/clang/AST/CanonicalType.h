@@ -25,6 +25,8 @@ namespace clang {
 template<typename T> class CanProxy;
 template<typename T> struct CanProxyAdaptor;
 
+class ABIType;
+  
 //----------------------------------------------------------------------------//
 // Canonical, qualified type template
 //----------------------------------------------------------------------------//
@@ -79,7 +81,8 @@ public:
 
   /// \brief Implicit conversion to a qualified type.
   operator QualType() const { return Stored; }
-
+  operator ABIType() const;
+  
   /// \brief Implicit conversion to bool.
   operator bool() const { return !isNull(); }
   

@@ -513,30 +513,30 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
 }
 
 llvm::Function::arg_iterator
-CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+CodeGenFunction::ExpandTypeFromArgs(ABIType Ty, LValue LV,
                                     llvm::Function::arg_iterator AI) {
   assert(LV.isSimple() &&
          "Unexpected non-simple lvalue during struct expansion.");
 
   if (const ConstantArrayType *AT = getContext().getAsConstantArrayType(Ty)) {
     unsigned NumElts = AT->getSize().getZExtValue();
-    QualType EltTy = AT->getElementType();
+    ABIType EltTy = AT->getElementType();
     for (unsigned Elt = 0; Elt < NumElts; ++Elt) {
       llvm::Value *EltAddr = Builder.CreateConstGEP2_32(LV.getAddress(), 0, Elt);
       LValue LV = MakeAddrLValue(EltAddr, EltTy);
       AI = ExpandTypeFromArgs(EltTy, LV, AI);
     }
-  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
-    RecordDecl *RD = RT->getDecl();
+  } else if (const ABIType::Record *RT = Ty->getAs<RecordType>()) {
+    ABIType::RecordDecl *RD = RT->getDecl();
     if (RD->isUnion()) {
       // Unions can be here only in degenerative cases - all the fields are same
       // after flattening. Thus we have to use the "largest" field.
-      const FieldDecl *LargestFD = 0;
+      const ABIType::FieldDecl *LargestFD = 0;
       CharUnits UnionSize = CharUnits::Zero();
 
-      for (RecordDecl::field_iterator i = RD->field_begin(), e = RD->field_end();
+      for (ABIType::RecordDecl::field_iterator i = RD->field_begin(), e = RD->field_end();
            i != e; ++i) {
-        const FieldDecl *FD = *i;
+        const ABIType::FieldDecl *FD = *i;
         assert(!FD->isBitField() &&
                "Cannot expand structure with bit-field members.");
         CharUnits FieldSize = getContext().getTypeSizeInChars(FD->getType());
@@ -551,18 +551,18 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
         AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
       }
     } else {
-      for (RecordDecl::field_iterator i = RD->field_begin(), e = RD->field_end();
+      for (ABIType::field_iterator i = RD->field_begin(), e = RD->field_end();
            i != e; ++i) {
-        FieldDecl *FD = *i;
-        QualType FT = FD->getType();
+        ABIType::FieldDecl *FD = *i;
+        ABIType FT = FD->getType();
 
         // FIXME: What are the right qualifiers here?
         LValue SubLV = EmitLValueForField(LV, FD);
         AI = ExpandTypeFromArgs(FT, SubLV, AI);
       }
     }
-  } else if (const ComplexType *CT = Ty->getAs<ComplexType>()) {
-    QualType EltTy = CT->getElementType();
+  } else if (const ABIType::Complex *CT = Ty->getAs<ComplexType>()) {
+    ABIType EltTy = CT->getElementType();
     llvm::Value *RealAddr = Builder.CreateStructGEP(LV.getAddress(), 0, "real");
     EmitStoreThroughLValue(RValue::get(AI++), MakeAddrLValue(RealAddr, EltTy));
     llvm::Value *ImagAddr = Builder.CreateStructGEP(LV.getAddress(), 1, "imag");
@@ -794,7 +794,7 @@ bool CodeGenModule::ReturnTypeUsesSRet(const CGFunctionInfo &FI) {
   return FI.getReturnInfo().isIndirect();
 }
 
-bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
+bool CodeGenModule::ReturnTypeUsesFPRet(ABIType ResultType) {
   if (const BuiltinType *BT = ResultType->getAs<BuiltinType>()) {
     switch (BT->getKind()) {
     default:
@@ -812,7 +812,7 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
   return false;
 }
 
-bool CodeGenModule::ReturnTypeUsesFP2Ret(QualType ResultType) {
+bool CodeGenModule::ReturnTypeUsesFP2Ret(ABIType ResultType) {
   if (const ComplexType *CT = ResultType->getAs<ComplexType>()) {
     if (const BuiltinType *BT = CT->getElementType()->getAs<BuiltinType>()) {
       if (BT->getKind() == BuiltinType::LongDouble)
@@ -851,7 +851,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     assert(!retAI.getIndirectAlign() && "Align unused on indirect return.");
     resultType = llvm::Type::getVoidTy(getLLVMContext());
 
-    QualType ret = FI.getReturnType();
+    ABIType ret = FI.getReturnType();
     llvm::Type *ty = ConvertType(ret);
     unsigned addressSpace = Context.getTargetAddressSpace(ret);
     argTypes.push_back(llvm::PointerType::get(ty, addressSpace));
@@ -975,7 +975,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
   if (CodeGenOpts.NoImplicitFloat)
     FuncAttrs.addAttribute(llvm::Attributes::NoImplicitFloat);
 
-  QualType RetTy = FI.getReturnType();
+  ABIType RetTy = FI.getReturnType();
   unsigned Index = 1;
   const ABIArgInfo &RetAI = FI.getReturnInfo();
   switch (RetAI.getKind()) {
@@ -1018,7 +1018,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
 
   for (CGFunctionInfo::const_arg_iterator it = FI.arg_begin(),
          ie = FI.arg_end(); it != ie; ++it) {
-    QualType ParamType = it->type;
+    ABIType ParamType = it->type;
     const ABIArgInfo &AI = it->info;
     llvm::AttrBuilder Attrs;
 
@@ -1133,7 +1133,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   // return statements.
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl)) {
     if (FD->hasImplicitReturnZero()) {
-      QualType RetTy = FD->getResultType().getUnqualifiedType();
+      ABIType RetTy = FD->getResultType().getUnqualifiedType();
       llvm::Type* LLVMTy = CGM.getTypes().ConvertType(RetTy);
       llvm::Constant* Zero = llvm::Constant::getNullValue(LLVMTy);
       Builder.CreateStore(Zero, ReturnValue);
@@ -1161,7 +1161,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   for (FunctionArgList::const_iterator i = Args.begin(), e = Args.end(); 
        i != e; ++i, ++info_it, ++ArgNo) {
     const VarDecl *Arg = *i;
-    QualType Ty = info_it->type;
+    ABIType Ty = info_it->type;
     const ABIArgInfo &ArgI = info_it->info;
 
     bool isPromoted =
@@ -1547,7 +1547,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI) {
 
   llvm::DebugLoc RetDbgLoc;
   llvm::Value *RV = 0;
-  QualType RetTy = FI.getReturnType();
+  ABIType RetTy = FI.getReturnType();
   const ABIArgInfo &RetAI = FI.getReturnInfo();
 
   switch (RetAI.getKind()) {
@@ -1633,7 +1633,7 @@ void CodeGenFunction::EmitDelegateCallArg(CallArgList &args,
   // for EmitCall.
   llvm::Value *local = GetAddrOfLocalVar(param);
 
-  QualType type = param->getType();
+  ABIType type = param->getType();
 
   // For the most part, we just need to load the alloca, except:
   // 1) aggregate r-values are actually pointers to temporaries, and
@@ -1699,7 +1699,7 @@ static void emitWriteback(CodeGenFunction &CGF,
                             "icr.writeback-cast");
   
   // Perform the writeback.
-  QualType srcAddrType = writeback.AddressType;
+  ABIType srcAddrType = writeback.AddressType;
   CGF.EmitStoreThroughLValue(RValue::get(value),
                              CGF.MakeAddrLValue(srcAddr, srcAddrType));
 
@@ -1734,7 +1734,7 @@ static void emitWritebackArg(CodeGenFunction &CGF, CallArgList &args,
     return;
   }
 
-  QualType srcAddrType =
+  ABIType srcAddrType =
     CRE->getSubExpr()->getType()->castAs<PointerType>()->getPointeeType();
 
   // Create the temporary.
@@ -1798,7 +1798,7 @@ static void emitWritebackArg(CodeGenFunction &CGF, CallArgList &args,
 }
 
 void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
-                                  QualType type) {
+                                  ABIType type) {
   if (const ObjCIndirectCopyRestoreExpr *CRE
         = dyn_cast<ObjCIndirectCopyRestoreExpr>(E)) {
     assert(getLangOpts().ObjCAutoRefCount);
@@ -1877,12 +1877,12 @@ static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
   ++ArgNo;
 }
 
-void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+void CodeGenFunction::ExpandTypeToArgs(ABIType Ty, RValue RV,
                                        SmallVector<llvm::Value*,16> &Args,
                                        llvm::FunctionType *IRFuncTy) {
   if (const ConstantArrayType *AT = getContext().getAsConstantArrayType(Ty)) {
     unsigned NumElts = AT->getSize().getZExtValue();
-    QualType EltTy = AT->getElementType();
+    ABIType EltTy = AT->getElementType();
     llvm::Value *Addr = RV.getAggregateAddr();
     for (unsigned Elt = 0; Elt < NumElts; ++Elt) {
       llvm::Value *EltAddr = Builder.CreateConstGEP2_32(Addr, 0, Elt);
@@ -1903,12 +1903,12 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
     LValue LV = MakeAddrLValue(RV.getAggregateAddr(), Ty);
 
     if (RD->isUnion()) {
-      const FieldDecl *LargestFD = 0;
+      const ABIType::FieldDecl *LargestFD = 0;
       CharUnits UnionSize = CharUnits::Zero();
 
       for (RecordDecl::field_iterator i = RD->field_begin(), e = RD->field_end();
            i != e; ++i) {
-        const FieldDecl *FD = *i;
+        const ABIType::FieldDecl *FD = *i;
         assert(!FD->isBitField() &&
                "Cannot expand structure with bit-field members.");
         CharUnits FieldSize = getContext().getTypeSizeInChars(FD->getType());
@@ -1924,7 +1924,7 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
     } else {
       for (RecordDecl::field_iterator i = RD->field_begin(), e = RD->field_end();
            i != e; ++i) {
-        FieldDecl *FD = *i;
+        ABIType::FieldDecl *FD = *i;
 
         RValue FldRV = EmitRValueForField(LV, FD);
         ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy);
@@ -1960,7 +1960,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   // Handle struct-return functions by passing a pointer to the
   // location that we would like to return into.
-  QualType RetTy = CallInfo.getReturnType();
+  ABIType RetTy = CallInfo.getReturnType();
   const ABIArgInfo &RetAI = CallInfo.getReturnInfo();
 
   // IRArgNo - Keep track of the argument number in the callee we're looking at.
@@ -2306,6 +2306,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
 /* VarArg handling */
 
-llvm::Value *CodeGenFunction::EmitVAArg(llvm::Value *VAListAddr, QualType Ty) {
+llvm::Value *CodeGenFunction::EmitVAArg(llvm::Value *VAListAddr, ABIType Ty) {
   return CGM.getTypes().getABIInfo().EmitVAArg(VAListAddr, Ty, *this);
 }

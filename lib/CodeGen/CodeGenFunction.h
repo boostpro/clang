@@ -760,7 +760,7 @@ public:
   /// PushDestructorCleanup - Push a cleanup to call the
   /// complete-object variant of the given destructor on the object at
   /// the given address.
-  void PushDestructorCleanup(const CXXDestructorDecl *Dtor,
+  void PushDestructorCleanup(const ABIType::CXXDestructorDecl *Dtor,
                              llvm::Value *Addr);
 
   /// PopCleanupBlock - Will pop the cleanup entry on the stack and
@@ -2207,7 +2207,7 @@ public:
 
   llvm::Value *EmitIvarOffset(const ObjCInterfaceDecl *Interface,
                               const ObjCIvarDecl *Ivar);
-  LValue EmitLValueForField(LValue Base, const FieldDecl* Field);
+  LValue EmitLValueForField(LValue Base, const ABIType::FieldDecl* Field);
 
   /// EmitLValueForFieldInitialization - Like EmitLValueForField, except that
   /// if the Field is a reference, this will return the address of the reference

@@ -422,7 +422,7 @@ void CodeGenFunction::GenerateCXXGlobalDtorsFunc(llvm::Function *Fn,
 /// invoked, destroys the given object.
 llvm::Function * 
 CodeGenFunction::generateDestroyHelper(llvm::Constant *addr,
-                                       QualType type,
+                                       ABIType type,
                                        Destroyer *destroyer,
                                        bool useEHCleanupForArray) {
   FunctionArgList args;

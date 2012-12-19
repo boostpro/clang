@@ -1100,7 +1100,7 @@ llvm::Value *CodeGenFunction::getNormalCleanupDestSlot() {
 
 /// Emits all the code to cause the given temporary to be cleaned up.
 void CodeGenFunction::EmitCXXTemporary(const CXXTemporary *Temporary,
-                                       QualType TempType,
+                                       ABIType TempType,
                                        llvm::Value *Ptr) {
   pushDestroy(NormalAndEHCleanup, Ptr, TempType, destroyCXXObject,
               /*useEHCleanup*/ true);

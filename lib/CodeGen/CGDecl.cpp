@@ -1132,36 +1132,36 @@ void CodeGenFunction::EmitExprAsInit(const Expr *init,
 /// Enter a destroy cleanup for the given local variable.
 void CodeGenFunction::emitAutoVarTypeCleanup(
                             const CodeGenFunction::AutoVarEmission &emission,
-                            QualType::DestructionKind dtorKind) {
-  assert(dtorKind != QualType::DK_none);
+                            ABIType::DestructionKind dtorKind) {
+  assert(dtorKind != ABIType::DK_none);
 
   // Note that for __block variables, we want to destroy the
   // original stack object, not the possibly forwarded object.
   llvm::Value *addr = emission.getObjectAddress(*this);
 
   const VarDecl *var = emission.Variable;
-  QualType type = var->getType();
+  ABIType type = var->getType();
 
   CleanupKind cleanupKind = NormalAndEHCleanup;
   CodeGenFunction::Destroyer *destroyer = 0;
 
   switch (dtorKind) {
-  case QualType::DK_none:
+  case ABIType::DK_none:
     llvm_unreachable("no cleanup for trivially-destructible variable");
 
-  case QualType::DK_cxx_destructor:
+  case ABIType::DK_cxx_destructor:
     // If there's an NRVO flag on the emission, we need a different
     // cleanup.
     if (emission.NRVOFlag) {
       assert(!type->isArrayType());
-      CXXDestructorDecl *dtor = type->getAsCXXRecordDecl()->getDestructor();
+      ABIType::CXXDestructorDecl *dtor = type->getAsCXXRecordDecl()->getDestructor();
       EHStack.pushCleanup<DestroyNRVOVariable>(cleanupKind, addr, dtor,
                                                emission.NRVOFlag);
       return;
     }
     break;
 
-  case QualType::DK_objc_strong_lifetime:
+  case ABIType::DK_objc_strong_lifetime:
     // Suppress cleanups for pseudo-strong variables.
     if (var->isARCPseudoStrong()) return;
 
@@ -1173,7 +1173,7 @@ void CodeGenFunction::emitAutoVarTypeCleanup(
       destroyer = CodeGenFunction::destroyARCStrongImprecise;
     break;
 
-  case QualType::DK_objc_weak_lifetime:
+  case ABIType::DK_objc_weak_lifetime:
     break;
   }
 
@@ -1200,7 +1200,7 @@ void CodeGenFunction::EmitAutoVarCleanups(const AutoVarEmission &emission) {
   const VarDecl &D = *emission.Variable;
 
   // Check the type for a cleanup.
-  if (QualType::DestructionKind dtorKind = D.getType().isDestructedType())
+  if (ABIType::DestructionKind dtorKind = D.getType().isDestructedType())
     emitAutoVarTypeCleanup(emission, dtorKind);
 
   // In GC mode, honor objc_precise_lifetime.
@@ -1227,22 +1227,22 @@ void CodeGenFunction::EmitAutoVarCleanups(const AutoVarEmission &emission) {
 }
 
 CodeGenFunction::Destroyer *
-CodeGenFunction::getDestroyer(QualType::DestructionKind kind) {
+CodeGenFunction::getDestroyer(ABIType::DestructionKind kind) {
   switch (kind) {
-  case QualType::DK_none: llvm_unreachable("no destroyer for trivial dtor");
-  case QualType::DK_cxx_destructor:
+  case ABIType::DK_none: llvm_unreachable("no destroyer for trivial dtor");
+  case ABIType::DK_cxx_destructor:
     return destroyCXXObject;
-  case QualType::DK_objc_strong_lifetime:
+  case ABIType::DK_objc_strong_lifetime:
     return destroyARCStrongPrecise;
-  case QualType::DK_objc_weak_lifetime:
+  case ABIType::DK_objc_weak_lifetime:
     return destroyARCWeak;
   }
   llvm_unreachable("Unknown DestructionKind");
 }
 
 /// pushDestroy - Push the standard destructor for the given type.
-void CodeGenFunction::pushDestroy(QualType::DestructionKind dtorKind,
-                                  llvm::Value *addr, QualType type) {
+void CodeGenFunction::pushDestroy(ABIType::DestructionKind dtorKind,
+                                  llvm::Value *addr, ABIType type) {
   assert(dtorKind && "cannot push destructor for trivial type");
 
   CleanupKind cleanupKind = getCleanupKind(dtorKind);
@@ -1251,7 +1251,7 @@ void CodeGenFunction::pushDestroy(QualType::DestructionKind dtorKind,
 }
 
 void CodeGenFunction::pushDestroy(CleanupKind cleanupKind, llvm::Value *addr,
-                                  QualType type, Destroyer *destroyer,
+                                  ABIType type, Destroyer *destroyer,
                                   bool useEHCleanupForArray) {
   pushFullExprCleanup<DestroyObject>(cleanupKind, addr, type,
                                      destroyer, useEHCleanupForArray);
@@ -1268,7 +1268,7 @@ void CodeGenFunction::pushDestroy(CleanupKind cleanupKind, llvm::Value *addr,
 /// \param useEHCleanupForArray - whether an EH cleanup should be
 ///   used when destroying array elements, in case one of the
 ///   destructions throws an exception
-void CodeGenFunction::emitDestroy(llvm::Value *addr, QualType type,
+void CodeGenFunction::emitDestroy(llvm::Value *addr, ABIType type,
                                   Destroyer *destroyer,
                                   bool useEHCleanupForArray) {
   const ArrayType *arrayType = getContext().getAsArrayType(type);
@@ -1305,7 +1305,7 @@ void CodeGenFunction::emitDestroy(llvm::Value *addr, QualType type,
 ///   element throws
 void CodeGenFunction::emitArrayDestroy(llvm::Value *begin,
                                        llvm::Value *end,
-                                       QualType type,
+                                       ABIType type,
                                        Destroyer *destroyer,
                                        bool checkZeroLength,
                                        bool useEHCleanup) {
@@ -1356,7 +1356,7 @@ void CodeGenFunction::emitArrayDestroy(llvm::Value *begin,
 /// emitArrayDestroy, the element type here may still be an array type.
 static void emitPartialArrayDestroy(CodeGenFunction &CGF,
                                     llvm::Value *begin, llvm::Value *end,
-                                    QualType type,
+                                    ABIType type,
                                     CodeGenFunction::Destroyer *destroyer) {
   // If the element type is itself an array, drill down.
   unsigned arrayDepth = 0;
@@ -1389,11 +1389,11 @@ namespace {
   class RegularPartialArrayDestroy : public EHScopeStack::Cleanup {
     llvm::Value *ArrayBegin;
     llvm::Value *ArrayEnd;
-    QualType ElementType;
+    ABIType ElementType;
     CodeGenFunction::Destroyer *Destroyer;
   public:
     RegularPartialArrayDestroy(llvm::Value *arrayBegin, llvm::Value *arrayEnd,
-                               QualType elementType,
+                               ABIType elementType,
                                CodeGenFunction::Destroyer *destroyer)
       : ArrayBegin(arrayBegin), ArrayEnd(arrayEnd),
         ElementType(elementType), Destroyer(destroyer) {}
@@ -1410,12 +1410,12 @@ namespace {
   class IrregularPartialArrayDestroy : public EHScopeStack::Cleanup {
     llvm::Value *ArrayBegin;
     llvm::Value *ArrayEndPointer;
-    QualType ElementType;
+    ABIType ElementType;
     CodeGenFunction::Destroyer *Destroyer;
   public:
     IrregularPartialArrayDestroy(llvm::Value *arrayBegin,
                                  llvm::Value *arrayEndPointer,
-                                 QualType elementType,
+                                 ABIType elementType,
                                  CodeGenFunction::Destroyer *destroyer)
       : ArrayBegin(arrayBegin), ArrayEndPointer(arrayEndPointer),
         ElementType(elementType), Destroyer(destroyer) {}
@@ -1440,7 +1440,7 @@ namespace {
 ///   the number of successfully-constructed elements
 void CodeGenFunction::pushIrregularPartialArrayCleanup(llvm::Value *arrayBegin,
                                                  llvm::Value *arrayEndPointer,
-                                                       QualType elementType,
+                                                       ABIType elementType,
                                                        Destroyer *destroyer) {
   pushFullExprCleanup<IrregularPartialArrayDestroy>(EHCleanup,
                                                     arrayBegin, arrayEndPointer,
@@ -1459,7 +1459,7 @@ void CodeGenFunction::pushIrregularPartialArrayCleanup(llvm::Value *arrayBegin,
 ///   the number of successfully-constructed elements
 void CodeGenFunction::pushRegularPartialArrayCleanup(llvm::Value *arrayBegin,
                                                      llvm::Value *arrayEnd,
-                                                     QualType elementType,
+                                                     ABIType elementType,
                                                      Destroyer *destroyer) {
   pushFullExprCleanup<RegularPartialArrayDestroy>(EHCleanup,
                                                   arrayBegin, arrayEnd,
@@ -1510,7 +1510,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
     }
   }
 
-  QualType Ty = D.getType();
+  ABIType Ty = D.getType();
 
   llvm::Value *DeclPtr;
   // If this is an aggregate or variable sized value, reuse the input pointer.
@@ -1526,7 +1526,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
 
     bool doStore = true;
 
-    Qualifiers qs = Ty.getQualifiers();
+    ABIType::Qualifiers qs = Ty.getQualifiers();
 
     if (Qualifiers::ObjCLifetime lt = qs.getObjCLifetime()) {
       // We honor __attribute__((ns_consumed)) for types with lifetime.

@@ -17,7 +17,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
-#include "clang/AST/Type.h"
+#include "ABIType.h"
 
 namespace llvm {
   class Constant;
@@ -121,10 +121,10 @@ class LValue {
     const CGBitFieldInfo *BitFieldInfo;
   };
 
-  QualType Type;
+  ABIType Type;
 
   // 'const' is unused here
-  Qualifiers Quals;
+  ABIType::Qualifiers Quals;
 
   // The alignment to use when accessing this lvalue.  (For vector elements,
   // this is the alignment of the whole vector.)
@@ -152,7 +152,7 @@ class LValue {
   llvm::MDNode *TBAAInfo;
 
 private:
-  void Initialize(QualType Type, Qualifiers Quals,
+  void Initialize(ABIType Type, ABIType::Qualifiers Quals,
                   CharUnits Alignment,
                   llvm::MDNode *TBAAInfo = 0) {
     this->Type = Type;
@@ -177,12 +177,12 @@ public:
   bool isVolatileQualified() const { return Quals.hasVolatile(); }
   bool isRestrictQualified() const { return Quals.hasRestrict(); }
   unsigned getVRQualifiers() const {
-    return Quals.getCVRQualifiers() & ~Qualifiers::Const;
+    return Quals.getCVRQualifiers() & ~ABIType::Qualifiers::Const;
   }
 
-  QualType getType() const { return Type; }
+  ABIType getType() const { return Type; }
 
-  Qualifiers::ObjCLifetime getObjCLifetime() const {
+  ABIType::Qualifiers::ObjCLifetime getObjCLifetime() const {
     return Quals.getObjCLifetime();
   }
 
@@ -202,10 +202,10 @@ public:
   void setThreadLocalRef(bool Value) { ThreadLocalRef = Value;}
 
   bool isObjCWeak() const {
-    return Quals.getObjCGCAttr() == Qualifiers::Weak;
+    return Quals.getObjCGCAttr() == ABIType::Qualifiers::Weak;
   }
   bool isObjCStrong() const {
-    return Quals.getObjCGCAttr() == Qualifiers::Strong;
+    return Quals.getObjCGCAttr() == ABIType::Qualifiers::Strong;
   }
 
   bool isVolatile() const {
@@ -218,8 +218,8 @@ public:
   llvm::MDNode *getTBAAInfo() const { return TBAAInfo; }
   void setTBAAInfo(llvm::MDNode *N) { TBAAInfo = N; }
 
-  const Qualifiers &getQuals() const { return Quals; }
-  Qualifiers &getQuals() { return Quals; }
+  const ABIType::Qualifiers &getQuals() const { return Quals; }
+  ABIType::Qualifiers &getQuals() { return Quals; }
 
   unsigned getAddressSpace() const { return Quals.getAddressSpace(); }
 
@@ -254,10 +254,10 @@ public:
     return *BitFieldInfo;
   }
 
-  static LValue MakeAddr(llvm::Value *address, QualType type,
+  static LValue MakeAddr(llvm::Value *address, ABIType type,
                          CharUnits alignment, ASTContext &Context,
                          llvm::MDNode *TBAAInfo = 0) {
-    Qualifiers qs = type.getQualifiers();
+    ABIType::Qualifiers qs = type.getQualifiers();
     qs.setObjCGCAttr(Context.getObjCGCAttrKind(type));
 
     LValue R;
@@ -268,7 +268,7 @@ public:
   }
 
   static LValue MakeVectorElt(llvm::Value *Vec, llvm::Value *Idx,
-                              QualType type, CharUnits Alignment) {
+                              ABIType type, CharUnits Alignment) {
     LValue R;
     R.LVType = VectorElt;
     R.V = Vec;
@@ -278,7 +278,7 @@ public:
   }
 
   static LValue MakeExtVectorElt(llvm::Value *Vec, llvm::Constant *Elts,
-                                 QualType type, CharUnits Alignment) {
+                                 ABIType type, CharUnits Alignment) {
     LValue R;
     R.LVType = ExtVectorElt;
     R.V = Vec;
@@ -295,7 +295,7 @@ public:
   /// access.
   static LValue MakeBitfield(llvm::Value *BaseValue,
                              const CGBitFieldInfo &Info,
-                             QualType type, CharUnits Alignment) {
+                             ABIType type, CharUnits Alignment) {
     LValue R;
     R.LVType = BitField;
     R.V = BaseValue;
@@ -316,7 +316,7 @@ class AggValueSlot {
   llvm::Value *Addr;
 
   // Qualifiers
-  Qualifiers Quals;
+  ABIType::Qualifiers Quals;
 
   unsigned short Alignment;
 
@@ -358,7 +358,7 @@ public:
   /// ignored - Returns an aggregate value slot indicating that the
   /// aggregate value is being ignored.
   static AggValueSlot ignored() {
-    return forAddr(0, CharUnits(), Qualifiers(), IsNotDestructed,
+    return forAddr(0, CharUnits(), ABIType::Qualifiers(), IsNotDestructed,
                    DoesNotNeedGCBarriers, IsNotAliased);
   }
 
@@ -373,7 +373,7 @@ public:
   /// \param needsGC - true if the slot is potentially located
   ///   somewhere that ObjC GC calls should be emitted for
   static AggValueSlot forAddr(llvm::Value *addr, CharUnits align,
-                              Qualifiers quals,
+                              ABIType::Qualifiers quals,
                               IsDestructed_t isDestructed,
                               NeedsGCBarriers_t needsGC,
                               IsAliased_t isAliased,
@@ -405,7 +405,7 @@ public:
     DestructedFlag = destructed;
   }
 
-  Qualifiers getQualifiers() const { return Quals; }
+  ABIType::Qualifiers getQualifiers() const { return Quals; }
 
   bool isVolatile() const {
     return Quals.hasVolatile();

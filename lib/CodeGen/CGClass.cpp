@@ -23,6 +23,8 @@
 using namespace clang;
 using namespace CodeGen;
 
+typedef ABIType::CXXRecordDecl CXXRecordDecl;
+
 static CharUnits 
 ComputeNonVirtualBaseClassOffset(ASTContext &Context, 
                                  const CXXRecordDecl *DerivedClass,
@@ -979,12 +981,12 @@ namespace {
   };
 
   class DestroyField  : public EHScopeStack::Cleanup {
-    const FieldDecl *field;
+    const ABIType::FieldDecl *field;
     CodeGenFunction::Destroyer *destroyer;
     bool useEHCleanupForArray;
 
   public:
-    DestroyField(const FieldDecl *field, CodeGenFunction::Destroyer *destroyer,
+    DestroyField(const ABIType::FieldDecl *field, CodeGenFunction::Destroyer *destroyer,
                  bool useEHCleanupForArray)
       : field(field), destroyer(destroyer),
         useEHCleanupForArray(useEHCleanupForArray) {}
@@ -1073,10 +1075,10 @@ void CodeGenFunction::EnterDtorCleanups(const CXXDestructorDecl *DD,
   }
 
   // Destroy direct fields.
-  SmallVector<const FieldDecl *, 16> FieldDecls;
-  for (CXXRecordDecl::field_iterator I = ClassDecl->field_begin(),
+  SmallVector<const ABIType::FieldDecl *, 16> FieldDecls;
+  for (ABIType::CXXRecordDecl::field_iterator I = ClassDecl->field_begin(),
        E = ClassDecl->field_end(); I != E; ++I) {
-    const FieldDecl *field = *I;
+    const ABIType::FieldDecl *field = *I;
     QualType type = field->getType();
     QualType::DestructionKind dtorKind = type.isDestructedType();
     if (!dtorKind) continue;
@@ -1109,7 +1111,7 @@ CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
                                           CallExpr::const_arg_iterator argBegin,
                                             CallExpr::const_arg_iterator argEnd,
                                             bool zeroInitialize) {
-  QualType elementType;
+  ABIType elementType;
   llvm::Value *numElements =
     emitArrayLength(arrayType, elementType, arrayBegin);
 
@@ -1220,8 +1222,8 @@ CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
 
 void CodeGenFunction::destroyCXXObject(CodeGenFunction &CGF,
                                        llvm::Value *addr,
-                                       QualType type) {
-  const RecordType *rtype = type->castAs<RecordType>();
+                                       ABIType type) {
+  const ABIType::Record *rtype = type->castAs<RecordType>();
   const CXXRecordDecl *record = cast<CXXRecordDecl>(rtype->getDecl());
   const CXXDestructorDecl *dtor = record->getDestructor();
   assert(!dtor->isTrivial());
@@ -1442,17 +1444,17 @@ namespace {
   };
 }
 
-void CodeGenFunction::PushDestructorCleanup(const CXXDestructorDecl *D,
+void CodeGenFunction::PushDestructorCleanup(const ABIType::CXXDestructorDecl *D,
                                             llvm::Value *Addr) {
   EHStack.pushCleanup<CallLocalDtor>(NormalAndEHCleanup, D, Addr);
 }
 
-void CodeGenFunction::PushDestructorCleanup(QualType T, llvm::Value *Addr) {
-  CXXRecordDecl *ClassDecl = T->getAsCXXRecordDecl();
+void CodeGenFunction::PushDestructorCleanup(ABIType T, llvm::Value *Addr) {
+  ABIType::CXXRecordDecl *ClassDecl = T->getAsCXXRecordDecl();
   if (!ClassDecl) return;
   if (ClassDecl->hasTrivialDestructor()) return;
 
-  const CXXDestructorDecl *D = ClassDecl->getDestructor();
+  const ABIType::CXXDestructorDecl *D = ClassDecl->getDestructor();
   assert(D && D->isUsed() && "destructor not marked as used!");
   PushDestructorCleanup(D, Addr);
 }
